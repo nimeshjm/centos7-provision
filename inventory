@@ -1,0 +1,2 @@
+[servers]
+mail ansible_host=194.71.225.52 ansible_user=nimeshjm 
