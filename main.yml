@@ -4,7 +4,7 @@
   hosts: all
   tasks:
 
-    - name: Update cache if the last one is more than 3600 seconds ago
+    - name: Update apt cache if the last one is more than 3600 seconds ago
       apt:
         update_cache: yes
         cache_valid_time: 3600
@@ -27,7 +27,14 @@
       user:
         name: nimeshjm
         shell: /bin/bash
-        password: "onetimepasswordthatwillneverbeused"
+      vars:
+        password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          36616638313865653637386466333239366362373635393332646465383963386235333666333161
+          3564623935633765393136363864626361666362613732340a373363343265383465613062313230
+          34613062613536666165653031326139306233343235343631356630393936386437616166623730
+          3536646161383332650a656433393438666336396337356433633636333030633464323765663461
+          3763
       become: true
 
     - name: Add user to sudoers
@@ -36,12 +43,20 @@
         content: "nimeshjm  ALL=(ALL)  NOPASSWD: ALL"
       become: true
 
-    - name: Deploy SSH Key
+    - name: Authorise SSH Key
       authorized_key: 
         user: nimeshjm
         key: "{{ lookup('file', 'id_rsa.pub') }}"
         state: present
       become: true
+
+    - name: Deploy SSH key
+      copy:
+        src: id_rsa
+        dest: /home/nimeshjm/.ssh/
+        owner: nimeshjm
+        group: nimeshjm
+        mode: 0400
 
     - name: Disable Password Authentication
       lineinfile:
@@ -94,13 +109,7 @@
       become: true
       apt:
         state: latest
-        name: "{{item}}"
-      with_items:
-        - apt-transport-https   
-        - ca-certificates 
-        - curl 
-        - gnupg-agent 
-        - software-properties-common
+        name: ['apt-transport-https', 'ca-certificates', 'curl', 'gnupg-agent', 'software-properties-common']
 
     - name: Add docker apt-key
       become: true
@@ -120,11 +129,7 @@
       become: true
       apt:
         state: latest
-        name: "{{item}}"
-      with_items:
-        - docker-ce 
-        - docker-ce-cli
-        - containerd.io
+        name: ['docker-ce', 'docker-ce-cli', 'containerd.io']
 
     - name: Setup docker in secondary storage
       become: true
@@ -148,6 +153,20 @@
         dest: /usr/local/bin/docker-compose
         mode: '0777'
         checksum: sha256:cfb3439956216b1248308141f7193776fcf4b9c9b49cbbe2fb07885678e2bb8a
+
+    - name: Add Ansible apt repository
+      become: true
+      apt_repository: 
+        repo: 'ppa:ansible/ansible' 
+        state: present 
+        filename: ansible
+        update_cache: yes
+
+    - name: Install Ansible
+      become: true
+      apt:
+        state: latest
+        name: "ansible"
 
     - name: Done
       debug:
