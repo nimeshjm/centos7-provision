@@ -147,7 +147,7 @@
       become: true
         
     - name: Install docker compose
-      become: true
+      become: true*
       get_url:
         url: https://github.com/docker/compose/releases/download/1.24.1/docker-compose-Linux-x86_64
         dest: /usr/local/bin/docker-compose
@@ -167,6 +167,34 @@
       apt:
         state: latest
         name: "ansible"
+
+    - name: Install python docker and docker-compose modules
+      pip:
+        name: ['docker', 'docker-compose']
+    
+    - name: Install pihole
+      docker_container:
+        capabilities:
+        - NET_ADMIN
+        name: pi-hole
+        dns_servers:
+        - 127.0.0.1
+        env:
+          DNS1: 127.0.0.1#5053
+          DNS2: ''
+          DNSMASQ_LISTENING: local
+          IPv6: "false"
+          TZ: Europe/London
+          ServerIp: 127.0.0.1
+          WEBPASSWORD: admin
+        ports:
+          - 127.0.0.1:11080:80
+          - 127.0.0.1:53:53/tcp
+          - 127.0.0.1:53:53/udp
+          - 127.0.0.1:67:67/udp
+          - 127.0.0.1:11443:443
+        image: pihole/pihole
+        restart_policy: unless-stopped
 
     - name: Done
       debug:
