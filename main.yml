@@ -111,6 +111,26 @@
         state: latest
         name: ['apt-transport-https', 'ca-certificates', 'curl', 'gnupg-agent', 'software-properties-common']
 
+    - name: Add certbot apt repository
+      become: true
+      apt_repository: 
+        repo: 'ppa:certbot/certbot' 
+        state: present 
+        filename: certbot
+        update_cache: yes
+
+    - name: Install certbot
+      become: true
+      apt:
+        state: latest
+        name: ['certbot', 'python-certbot-nginx', 'software-properties-common', 'python3-certbot-dns-cloudflare']
+
+    - name: Install docker
+      become: true
+      apt:
+        state: latest
+        name: ['docker-ce', 'docker-ce-cli', 'containerd.io']
+
     - name: Add docker apt-key
       become: true
       apt_key: 
@@ -196,10 +216,174 @@
         image: pihole/pihole
         restart_policy: unless-stopped
 
-    - name: Done
-      debug:
-        msg: "done"
+    - name: Add Go apt repository
+      become: true
+      apt_repository: 
+        repo: 'ppa:longsleep/golang-backports' 
+        state: present 
+        filename: golang
+        update_cache: yes
 
+    - name: Install Go
+      become: true
+      apt:
+        state: latest
+        name: "golang-go"
+
+    - name: create temporary build directory for dt site
+      tempfile:
+        state: directory
+        suffix: build
+      register: tempdir_dt
+
+    - name: clone dt site
+      git:
+        repo: ssh://git@bitbucket.org/nimeshjm/dt-gosite.git
+        dest: "{{ tempdir_dt.path }}"
+
+    - name: Untag dt image 
+      docker_image:
+        name: dt-site
+        state: absent
+        force_absent: yes
+
+    - name: Build dt image 
+      docker_image:
+        name: dt-site
+        build:
+          path: "{{tempdir_dt.path}}"
+          pull: no
+        source: build
+
+    - name: delete dt temp directory
+      file:
+        path: "{{ tempdir_dt.path }}"
+        state: absent
+      when: tempdir_dt.path is defined
+
+    # run dt
+
+    - name: create temporary build directory for nimeshjmsite
+      tempfile:
+        state: directory
+        suffix: build
+      register: tempdir_nimeshjm
+
+    - name: clone nimeshjmsite
+      git:
+        repo: git@bitbucket.org:nimeshjm/nimeshjm-gosite.git
+        dest: "{{ tempdir_nimeshjm.path }}"
+
+    - name: Untag nimeshjmimage 
+      docker_image:
+        name: nimeshjm-site
+        state: absent
+        force_absent: yes
+
+    - name: Build nimeshjmimage 
+      docker_image:
+        name: nimeshjm-site
+        build:
+          path: "{{tempdir_nimeshjm.path}}"
+          pull: no
+        source: build
+
+    - name: delete nimeshjmtemp directory
+      file:
+        path: "{{ tempdir_nimeshjm.path }}"
+        state: absent
+      when: tempdir_nimeshjm.path is defined
+
+    - name: run nimeshjm.com
+      docker_container:
+        name: nimesjm-site
+        ports:
+          - 127.0.0.1:13080:80
+        image: nimeshjm-site
+        restart_policy: unless-stopped
+
+
+    - name: create temporary build directory for funds
+      tempfile:
+        state: directory
+        suffix: build
+      register: tempdir_funds
+
+    - name: clone tempdir_funds
+      git:
+        repo: git@github.com:nimeshjm/fund-data.git
+        dest: "{{ tempdir_funds.path }}"
+
+    - name: Untag funds 
+      docker_image:
+        name: funds-site
+        state: absent
+        force_absent: yes
+
+    - name: Build funds 
+      docker_image:
+        name: funds-site
+        build:
+          path: "{{tempdir_funds.path}}"
+          pull: no
+        source: build
+
+    - name: delete funds directory
+      file:
+        path: "{{ tempdir_funds.path }}"
+        state: absent
+      when: tempdir_funds.path is defined
+
+    - name: run funds
+      docker_container:
+        name: funds-site
+        ports:
+          - 127.0.0.1:14080:8000
+        image: funds-site
+        restart_policy: unless-stopped
+
+    - name: copy nginx config
+      become: true
+      copy:
+        src: "{{playbook_dir}}/files/sites-available/"
+        dest: /etc/nginx/sites-available/
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Create sites-enabled symlinks
+      become: true
+      file:
+        src: "/etc/nginx/sites-available/{{item}}"
+        dest: "/etc/nginx/sites-enabled/{{item}}"
+        owner: root
+        group: root
+        state: link
+      with_items:
+        - nimeshjm.conf
+        - owncloud.conf
+        - funds.conf
+      notify:
+        - restart nginx
+
+    - name: add certbot dns secret
+      become: true
+      copy:
+        src: "{{playbook_dir}}/files/letsencrypt/cloudflare.ini"
+        dest: /etc/letsencrypt/cloudflare.ini
+        owner: root
+        group: root
+        mode: '0400'
+
+    - name: Run LetsEncrypt certbot
+      become: true
+      command: certbot run -d cloud.nimeshjm.com,nimeshjm.com,www.nimeshjm.com,funds.nimeshjm.com -n --expand --dns-cloudflare --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini --installer nginx
+  
+    # ,mail.digitaltechnologies.ltd.uk
+    # ,digitaltechnologies.ltd.uk
+    # ,www.digitaltechnologies.ltd.uk
+    #     
+  
   handlers:
     - name: restart ssh
       become: true
@@ -211,6 +395,12 @@
       become: true
       service:
         name=docker
+        state=restarted
+
+    - name: restart nginx
+      become: true
+      service:
+        name=nginx
         state=restarted
 
           
