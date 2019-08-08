@@ -262,6 +262,13 @@
       when: tempdir_dt.path is defined
 
     # run dt
+    - name: run dt
+      docker_container:
+        name: dt-site
+        ports:
+          - 127.0.0.1:12080:80
+        image: dt-site
+        restart_policy: unless-stopped
 
     - name: create temporary build directory for nimeshjmsite
       tempfile:
@@ -363,6 +370,7 @@
         - nimeshjm.conf
         - owncloud.conf
         - funds.conf
+        - dt.conf
       notify:
         - restart nginx
 
@@ -377,11 +385,10 @@
 
     - name: Run LetsEncrypt certbot
       become: true
-      command: certbot run -d cloud.nimeshjm.com,nimeshjm.com,www.nimeshjm.com,funds.nimeshjm.com -n --expand --dns-cloudflare --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini --installer nginx
+      command: certbot run -d cloud.nimeshjm.com,mail.digitaltechnologies.ltd.uk,digitaltechnologies.ltd.uk,www.digitaltechnologies.ltd.uk,nimeshjm.com,www.nimeshjm.com,funds.nimeshjm.com -n --expand --dns-cloudflare --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini --installer nginx
   
     # ,mail.digitaltechnologies.ltd.uk
-    # ,digitaltechnologies.ltd.uk
-    # ,www.digitaltechnologies.ltd.uk
+    # 
     #     
   
   handlers:
