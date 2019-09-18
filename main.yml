@@ -191,34 +191,6 @@
     - name: Install python docker and docker-compose modules
       pip:
         name: ['docker', 'docker-compose']
-    
-    - name: Add openjdk apt repository
-      become: true
-      apt_repository: 
-        repo: 'ppa:openjdk-r/ppa' 
-        state: present 
-        filename: openjdk
-        update_cache: yes    
-    
-    - name: Install Java 11
-      become: true
-      apt:
-        state: latest
-        name: "openjdk-11-jdk"
-        
-    - name: Add gradle apt repository
-      become: true
-      apt_repository: 
-        repo: 'ppa:cwchien/gradle' 
-        state: present 
-        filename: openjdk
-        update_cache: yes   
-        
-    - name: Install Gradle
-      become: true
-      apt:
-        state: latest
-        name: "gradle"
         
     - name: Install pihole
       docker_container:
