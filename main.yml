@@ -206,6 +206,11 @@
         state: latest
         name: "openjdk-11-jdk"
         
+    - name: Install Gradle
+      become: true
+      apt:
+        state: latest
+        name: "gradle"
         
     - name: Install pihole
       docker_container:
