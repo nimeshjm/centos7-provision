@@ -206,6 +206,14 @@
         state: latest
         name: "openjdk-11-jdk"
         
+    - name: Add gradle apt repository
+      become: true
+      apt_repository: 
+        repo: 'ppa:cwchien/gradle' 
+        state: present 
+        filename: openjdk
+        update_cache: yes   
+        
     - name: Install Gradle
       become: true
       apt:
